@@ -158,10 +158,19 @@ namespace ConsoleApplication
 
             Write("Now that we've built a VM, lets turn off the VM.");
             computeClient.VirtualMachines.PowerOff(resourceGroupName, vm.Name);
-            Write("Your VM is now off. Lets restart the VM.");
+            Write("Your VM is now off. Lets start the VM.");
 
             computeClient.VirtualMachines.Start(resourceGroupName, vm.Name);
-            Write("Your VM has been restarted.");
+            Write("Your VM has been started.");
+
+            Write("Restarting the VM.");
+            computeClient.VirtualMachines.Restart(resourceGroupName, vm.Name);
+
+            Write("Listing VMs within the Azure subscription");
+            computeClient.VirtualMachines.ListAll().ToList().ForEach(machine => {
+                Write("\tName: {0}, Id: {1}", machine.Name, machine.Id);
+            });
+            Write(Environment.NewLine);
  
             Write("Connect to your new virtual machine via: `ssh {0}@{1}`", vm.OsProfile.AdminUsername, pubIp.DnsSettings.Fqdn);
         }

@@ -1,183 +1,229 @@
-﻿using System;
-using System.Threading.Tasks;
-using System.Collections.Generic;
+﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+
+using Microsoft.Azure.Management.Fluent;
+using Microsoft.Azure.Management.Compute.Fluent.Models;
+using Microsoft.Azure.Management.Compute.Fluent;
+using Microsoft.Azure.Management.Resource.Fluent;
+using Microsoft.Azure.Management.Resource.Fluent.Authentication;
+using Microsoft.Azure.Management.Resource.Fluent.Core;
+using Microsoft.Azure.Management.Samples.Common;
+using System;
 using System.Linq;
-using System.IO;
 
-// Azure Management dependencies
-using Microsoft.Rest.Azure.Authentication;
-using Microsoft.Azure.Management.Compute;
-using Microsoft.Azure.Management.Compute.Models;
-using Microsoft.Azure.Management.ResourceManager;
-using Microsoft.Azure.Management.ResourceManager.Models;
-using Microsoft.Azure.Management.Storage;
-using Microsoft.Azure.Management.Storage.Models;
-using Microsoft.Azure.Management.Network;
-using Microsoft.Azure.Management.Network.Models;
-
-namespace ConsoleApplication
+namespace ManageVirtualMachine
 {
+    /**
+     * Azure Compute sample for managing virtual machines -
+     *  - Create a virtual machine
+     *  - Start a virtual machine
+     *  - Stop a virtual machine
+     *  - Restart a virtual machine
+     *  - Update a virtual machine
+     *    - Expand the OS drive
+     *    - Tag a virtual machine (there are many possible variations here)
+     *    - Attach data disks
+     *    - Detach data disks
+     *  - List virtual machines
+     *  - Delete a virtual machine.
+     */
+
     public class Program
     {
+        private static readonly string rgName = ResourceNamer.RandomResourceName("rgCOMV", 24);
+        private static readonly string windowsVMName = ResourceNamer.RandomResourceName("wVM", 24);
+        private static readonly string linuxVMName = ResourceNamer.RandomResourceName("lVM", 24);
+        private static readonly string userName = "tirekicker";
+        private static readonly string password = "12NewPA$$w0rd!";
+        private static readonly string dataDiskName = "disk2";
+
         public static void Main(string[] args)
         {
-            var tenantId = Environment.GetEnvironmentVariable("AZURE_TENANT_ID");
-            var clientId = Environment.GetEnvironmentVariable("AZURE_CLIENT_ID");
-            var secret = Environment.GetEnvironmentVariable("AZURE_SECRET");
-            var subscriptionId = Environment.GetEnvironmentVariable("AZURE_SUBSCRIPTION_ID");
-            if(new List<string>{ tenantId, clientId, secret, subscriptionId }.Any(i => String.IsNullOrEmpty(i))) {
-                Console.WriteLine("Please provide ENV vars for AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_SECRET and AZURE_SUBSCRIPTION_ID.");
-            }
-            else
+            try
             {
-                RunSample(tenantId, clientId, secret, subscriptionId).Wait();                
-            }
-        }
+                //=============================================================
+                // Authenticate
+                AzureCredentials credentials = AzureCredentials.FromFile(Environment.GetEnvironmentVariable("AZURE_AUTH_LOCATION"));
 
-        public static async Task RunSample(string tenantId, string clientId, string secret, string subscriptionId)
-        {
-            // Build the service credentials and Azure Resource Manager clients
-            var serviceCreds = await ApplicationTokenProvider.LoginSilentAsync(tenantId, clientId, secret);
-            var resourceClient = new ResourceManagementClient(serviceCreds);
-            resourceClient.SubscriptionId = subscriptionId;
-            var computeClient = new ComputeManagementClient(serviceCreds);
-            computeClient.SubscriptionId = subscriptionId;
-            var storageClient = new StorageManagementClient(serviceCreds);
-            storageClient.SubscriptionId = subscriptionId;
-            var networkClient = new NetworkManagementClient(serviceCreds);
-            networkClient.SubscriptionId = subscriptionId;
+                var azure = Azure
+                    .Configure()
+                    .WithLogLevel(HttpLoggingDelegatingHandler.Level.BASIC)
+                    .Authenticate(credentials)
+                    .WithDefaultSubscription();
 
-            var resourceGroupName = "sample-dotnet-vm-group";
-            var westus = "westus";
+                // Print selected subscription
+                Console.WriteLine("Selected subscription: " + azure.SubscriptionId);
 
-            // Create the resource group
-            Write("Creating resource group: {0}", westus);
-            resourceClient.ResourceGroups.CreateOrUpdate(resourceGroupName, new ResourceGroup { Location = westus});
+                try
+                {
+                    var startTime = DateTimeOffset.Now.UtcDateTime;
 
-            // Create the storage account
-            Random r = new Random();
-            int postfix = r.Next(0, 1000000);
-            var storageAccountName = String.Format("dotnetstor{1}", resourceGroupName, postfix);
-            Write("Creating a premium storage account with encryption off named {0} in resource group {1}", storageAccountName, resourceGroupName);
-            var storCreateParams = new StorageAccountCreateParameters {
-                Location = westus,
-                Sku = new Microsoft.Azure.Management.Storage.Models.Sku(SkuName.PremiumLRS, SkuTier.Premium),
-                Kind = Microsoft.Azure.Management.Storage.Models.Kind.Storage,
-                Encryption = new Encryption(new EncryptionServices(new EncryptionService(false))),
-            };
-            storageClient.StorageAccounts.Create(resourceGroupName, storageAccountName, storCreateParams);
+                    var windowsVM = azure.VirtualMachines.Define(windowsVMName)
+                            .WithRegion(Region.US_EAST)
+                            .WithNewResourceGroup(rgName)
+                            .WithNewPrimaryNetwork("10.0.0.0/28")
+                            .WithPrimaryPrivateIpAddressDynamic()
+                            .WithoutPrimaryPublicIpAddress()
+                            .WithPopularWindowsImage(KnownWindowsVirtualMachineImage.WINDOWS_SERVER_2012_R2_DATACENTER)
+                            .WithAdminUserName(userName)
+                            .WithPassword(password)
+                            .WithSize(VirtualMachineSizeTypes.StandardD3V2)
+                            .Create();
+                    var endTime = DateTimeOffset.Now.UtcDateTime;
 
-            // Create the virtual network
-            Write("Creating a virtual network for the VM"); 
-            var vnetCreateParams = new VirtualNetwork {
-                Location = westus,
-                AddressSpace = new AddressSpace{ AddressPrefixes = new []{ "10.0.0.0/16" } },
-                DhcpOptions = new DhcpOptions{ DnsServers = new []{ "8.8.8.8" } },
-                Subnets = new List<Subnet>{ new Subnet{ Name = "dotnetsubnet", AddressPrefix = "10.0.0.0/24" } }
-            };
-            var vnet = networkClient.VirtualNetworks.CreateOrUpdate(resourceGroupName, "sample-dotnet-vnet", vnetCreateParams);
+                    Console.WriteLine($"Created VM: took {(endTime - startTime).TotalSeconds} seconds");
 
-            // Create the public IP
-            Write("Creating a public IP address for the VM");            
-            var publicIpCreateParams = new PublicIPAddress {
-                Location = westus,
-                PublicIPAllocationMethod = IPAllocationMethod.Dynamic,
-                DnsSettings = new PublicIPAddressDnsSettings{ DomainNameLabel = "sample-dotnet-domain-name-label" }
-            };
-            var pubIp = networkClient.PublicIPAddresses.CreateOrUpdate(resourceGroupName, "sample-dotnet-pubip", publicIpCreateParams);
+                    Utilities.PrintVirtualMachine(windowsVM);
 
-            // Create the network interface
-            Write("Creating a network interface for the VM");            
-            var vnetNicCreateParams = new NetworkInterface {
-                Location = westus,
-                IpConfigurations = new List<NetworkInterfaceIPConfiguration>{ 
-                    new NetworkInterfaceIPConfiguration { 
-                        Name = "sample-dotnet-nic",
-                        PrivateIPAllocationMethod = IPAllocationMethod.Dynamic,
-                        Subnet = vnet.Subnets.First(),
-                        PublicIPAddress = pubIp
-                    } 
+                    windowsVM.Update()
+                            .WithTag("who-rocks", "open source")
+                            .WithTag("where", "on azure")
+                            .Apply();
+
+                    Console.WriteLine("Tagged VM: " + windowsVM.Id);
+
+                    //=============================================================
+                    // Update - Attach data disks
+
+                    windowsVM.Update()
+                            .WithNewDataDisk(10)
+                            .DefineNewDataDisk(dataDiskName)
+                                .WithSizeInGB(20)
+                                .WithCaching(CachingTypes.ReadWrite)
+                                .Attach()
+                            .Apply();
+
+                    Console.WriteLine("Attached a new data disk" + dataDiskName + " to VM" + windowsVM.Id);
+                    Utilities.PrintVirtualMachine(windowsVM);
+
+                    windowsVM.Update()
+                        .WithoutDataDisk(dataDiskName)
+                        .Apply();
+
+                    Console.WriteLine("Detached data disk " + dataDiskName + " from VM " + windowsVM.Id);
+
+                    //=============================================================
+                    // Update - Resize (expand) the data disk
+                    // First, deallocate the virtual machine and then proceed with resize
+
+                    Console.WriteLine("De-allocating VM: " + windowsVM.Id);
+
+                    windowsVM.Deallocate();
+
+                    Console.WriteLine("De-allocated VM: " + windowsVM.Id);
+
+                    var dataDisk = windowsVM.DataDisks.First();
+
+                    windowsVM.Update()
+                                .UpdateDataDisk(dataDisk.Name)
+                                .WithSizeInGB(30)
+                                .Parent()
+                            .Apply();
+
+                    //=============================================================
+                    // Update - Expand the OS drive size by 10 GB
+
+                    int osDiskSizeInGb = windowsVM.OsDiskSize;
+                    if (osDiskSizeInGb == 0)
+                    {
+                        // Server is not returning the OS Disk size, possible bug in server
+                        Console.WriteLine("Server is not returning the OS disk size, possible bug in the server?");
+                        Console.WriteLine("Assuming that the OS disk size is 256 GB");
+                        osDiskSizeInGb = 256;
+                    }
+
+                    windowsVM.Update()
+                            .WithOsDiskSizeInGb(osDiskSizeInGb + 10)
+                            .Apply();
+
+                    Console.WriteLine("Expanded VM " + windowsVM.Id + "'s OS disk to " + (osDiskSizeInGb + 10));
+
+                    //=============================================================
+                    // Start the virtual machine
+
+                    Console.WriteLine("Starting VM " + windowsVM.Id);
+
+                    windowsVM.Start();
+
+                    Console.WriteLine("Started VM: " + windowsVM.Id + "; state = " + windowsVM.PowerState);
+
+                    //=============================================================
+                    // Restart the virtual machine
+
+                    Console.WriteLine("Restarting VM: " + windowsVM.Id);
+
+                    windowsVM.Restart();
+
+                    Console.WriteLine("Restarted VM: " + windowsVM.Id + "; state = " + windowsVM.PowerState);
+
+                    //=============================================================
+                    // Stop (powerOff) the virtual machine
+
+                    Console.WriteLine("Powering OFF VM: " + windowsVM.Id);
+
+                    windowsVM.PowerOff();
+
+                    Console.WriteLine("Powered OFF VM: " + windowsVM.Id + "; state = " + windowsVM.PowerState);
+
+                    // Get the network where Windows VM is hosted
+                    var network = windowsVM.GetPrimaryNetworkInterface().PrimaryIpConfiguration.GetNetwork();
+
+                    //=============================================================
+                    // Create a Linux VM in the same virtual network
+
+                    Console.WriteLine("Creating a Linux VM in the network");
+
+                    var linuxVM = azure.VirtualMachines.Define(linuxVMName)
+                            .WithRegion(Region.US_EAST)
+                            .WithExistingResourceGroup(rgName)
+                            .WithExistingPrimaryNetwork(network)
+                            .WithSubnet("subnet1") // Referencing the default subnet name when no name specified at creation
+                            .WithPrimaryPrivateIpAddressDynamic()
+                            .WithoutPrimaryPublicIpAddress()
+                            .WithPopularLinuxImage(KnownLinuxVirtualMachineImage.UBUNTU_SERVER_16_04_LTS)
+                            .WithRootUserName(userName)
+                            .WithPassword(password)
+                            .WithSize(VirtualMachineSizeTypes.StandardD3V2)
+                            .Create();
+
+                    Console.WriteLine("Created a Linux VM (in the same virtual network): " + linuxVM.Id);
+                    Utilities.PrintVirtualMachine(linuxVM);
+
+                    //=============================================================
+                    // List virtual machines in the resource group
+
+                    var resourceGroupName = windowsVM.ResourceGroupName;
+
+                    Console.WriteLine("Printing list of VMs =======");
+
+                    foreach (var virtualMachine in azure.VirtualMachines.ListByGroup(resourceGroupName))
+                    {
+                        Utilities.PrintVirtualMachine(virtualMachine);
+                    }
+
+                    //=============================================================
+                    // Delete the virtual machine
+                    Console.WriteLine("Deleting VM: " + windowsVM.Id);
+
+                    azure.VirtualMachines.Delete(windowsVM.Id);
+
+                    Console.WriteLine("Deleted VM: " + windowsVM.Id);
                 }
-            };
-            var nic = networkClient.NetworkInterfaces.CreateOrUpdate(resourceGroupName, "sample-dotnet-nic", vnetNicCreateParams);
-
-            Write("Creating a Ubuntu 14.04.3 Standard DS1 V2 virtual machine w/ a public IP");
-            // Create the virtual machine
-            var vmCreateParams = new VirtualMachine{
-                Location = westus,
-                OsProfile = new OSProfile {
-                    ComputerName = "sample-vm",
-                    AdminUsername = "notAdmin",
-                    AdminPassword = "Pa$$w0rd92"
-                },
-                HardwareProfile = new HardwareProfile{ VmSize = VirtualMachineSizeTypes.StandardDS1V2 },
-                StorageProfile = new StorageProfile{
-                    ImageReference = new ImageReference {
-                        Publisher = "Canonical",
-                        Offer = "UbuntuServer",
-                        Sku = "14.04.3-LTS",
-                        Version = "latest"
-                    },
-                    OsDisk = new OSDisk {
-                        Name = "sample-os-disk",
-                        Caching = CachingTypes.None,
-                        CreateOption = DiskCreateOptionTypes.FromImage,
-                        Vhd = new VirtualHardDisk{
-                            Uri = String.Format("https://{0}.blob.core.windows.net/dotnetcontainer/dotnetlinux.vhd", storageAccountName)
-                        }
-                    }
-                },
-                NetworkProfile = new NetworkProfile {
-                    NetworkInterfaces = new List<NetworkInterfaceReference>{ 
-                        new NetworkInterfaceReference {
-                            Id = nic.Id,
-                            Primary = true
-                        }
-                    }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
                 }
-            };
-            var sshPubLocation = Path.Combine(Environment.GetEnvironmentVariable("HOME"), ".ssh", "id_rsa.pub");
-            if(File.Exists(sshPubLocation)){
-                Write("Found SSH public key in {0}. Disabling password and enabling SSH Authentication.", sshPubLocation);
-                var pubKey = File.ReadAllText(sshPubLocation);
-                Write("Using public key: {0}", pubKey);
-                vmCreateParams.OsProfile.LinuxConfiguration = new LinuxConfiguration {
-                    DisablePasswordAuthentication = true,
-                    Ssh = new SshConfiguration{ 
-                        PublicKeys = new List<SshPublicKey>{ 
-                            new SshPublicKey{ 
-                                KeyData = pubKey, 
-                                Path = "/home/notAdmin/.ssh/authorized_keys" 
-                            } 
-                        } 
-                    }
-                };
+                finally
+                {
+                    Console.WriteLine($"Deleting resource group : {rgName}");
+                    azure.ResourceGroups.Delete(rgName);
+                    Console.WriteLine($"Deleted resource group : {rgName}");
+                }
             }
-            var vm = computeClient.VirtualMachines.CreateOrUpdate(resourceGroupName, "sample-dotnet-vm", vmCreateParams);
-            Write("Your Linux Virtual Machine is built.");
-
-            Write("Now that we've built a VM, lets turn off the VM.");
-            computeClient.VirtualMachines.PowerOff(resourceGroupName, vm.Name);
-            Write("Your VM is now off. Lets start the VM.");
-
-            computeClient.VirtualMachines.Start(resourceGroupName, vm.Name);
-            Write("Your VM has been started.");
-
-            Write("Restarting the VM.");
-            computeClient.VirtualMachines.Restart(resourceGroupName, vm.Name);
-
-            Write("Listing VMs within the Azure subscription");
-            computeClient.VirtualMachines.ListAll().ToList().ForEach(machine => {
-                Write("\tName: {0}, Id: {1}", machine.Name, machine.Id);
-            });
-            Write(Environment.NewLine);
- 
-            Write("Connect to your new virtual machine via: `ssh {0}@{1}`", vm.OsProfile.AdminUsername, pubIp.DnsSettings.Fqdn);
-        }
-
-        private static void Write(string format, params object[] items) 
-        {
-            Console.WriteLine(String.Format(format, items));
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
         }
     }
 }

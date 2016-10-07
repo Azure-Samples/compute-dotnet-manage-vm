@@ -4,7 +4,7 @@ Thank you for your interest in contributing to Azure samples!
 
 ## Ways to contribute
 
-You can contribute to [Azure samples](https://azure.microsoft.com/documentation/samples/) in a few different ways:
+You can contribute to [Azure samples](https://github.com/Azure-Samples/compute-dotnet-manage-vm) in a few different ways:
 
 - Submit feedback on [this sample page](https://azure.microsoft.com/documentation/samples/compute-dotnet-manage-vm/) whether it was helpful or not.  
 - Submit issues through [issue tracker](https://github.com/Azure-Samples/compute-dotnet-manage-vm/issues) on GitHub. We are actively monitoring the issues and improving our samples.

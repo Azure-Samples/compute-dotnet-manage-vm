@@ -1,6 +1,6 @@
 ---
-services: Compute
-platforms: .Net
+services: virtual-machines
+platforms: dotnet
 author: selvasingh
 ---
 

@@ -4,8 +4,8 @@
 using Microsoft.Azure.Management.Compute.Fluent;
 using Microsoft.Azure.Management.Compute.Fluent.Models;
 using Microsoft.Azure.Management.Fluent;
-using Microsoft.Azure.Management.Resource.Fluent;
-using Microsoft.Azure.Management.Resource.Fluent.Core;
+using Microsoft.Azure.Management.ResourceManager.Fluent;
+using Microsoft.Azure.Management.ResourceManager.Fluent.Core;
 using Microsoft.Azure.Management.Samples.Common;
 using System;
 
@@ -20,7 +20,6 @@ namespace ManageVirtualMachine
          *  - Stop a virtual machine
          *  - Restart a virtual machine
          *  - Update a virtual machine
-         *    - Expand the OS drive
          *    - Tag a virtual machine (there are many possible variations here)
          *    - Attach data disks
          *    - Detach data disks
@@ -66,8 +65,8 @@ namespace ManageVirtualMachine
                         .WithRegion(region)
                         .WithNewResourceGroup(rgName)
                         .WithNewPrimaryNetwork("10.0.0.0/28")
-                        .WithPrimaryPrivateIpAddressDynamic()
-                        .WithoutPrimaryPublicIpAddress()
+                        .WithPrimaryPrivateIPAddressDynamic()
+                        .WithoutPrimaryPublicIPAddress()
                         .WithPopularWindowsImage(KnownWindowsVirtualMachineImage.WindowsServer2012R2Datacenter)
                         .WithAdminUsername(userName)
                         .WithAdminPassword(password)
@@ -112,37 +111,6 @@ namespace ManageVirtualMachine
                 Utilities.Log("Detached data disk at lun 0 from VM " + windowsVM.Id);
 
                 //=============================================================
-                // Update - Resize (expand) the data disk
-                // First, deallocate the virtual machine and then proceed with resize
-
-                Utilities.Log("De-allocating VM: " + windowsVM.Id);
-
-                windowsVM.Deallocate();
-
-                Utilities.Log("De-allocated VM: " + windowsVM.Id);
-
-                //=============================================================
-                // Update - Expand the OS and data disks
-
-                Utilities.Log("Resize OS and data disks");
-
-                windowsVM.Update()
-                        .WithOSDiskSizeInGB(200)
-                        .WithDataDiskUpdated(1, 200)
-                        .WithDataDiskUpdated(2, 200)
-                        .Apply();
-
-                Utilities.Log("Expanded VM " + windowsVM.Id + "'s OS and data disks");
-
-                // Start the virtual machine
-
-                Utilities.Log("Starting VM " + windowsVM.Id);
-
-                windowsVM.Start();
-
-                Utilities.Log("Started VM: " + windowsVM.Id + "; state = " + windowsVM.PowerState);
-
-                //=============================================================
                 // Restart the virtual machine
 
                 Utilities.Log("Restarting VM: " + windowsVM.Id);
@@ -161,7 +129,7 @@ namespace ManageVirtualMachine
                 Utilities.Log("Powered OFF VM: " + windowsVM.Id + "; state = " + windowsVM.PowerState);
 
                 // Get the network where Windows VM is hosted
-                var network = windowsVM.GetPrimaryNetworkInterface().PrimaryIpConfiguration.GetNetwork();
+                var network = windowsVM.GetPrimaryNetworkInterface().PrimaryIPConfiguration.GetNetwork();
 
                 //=============================================================
                 // Create a Linux VM in the same virtual network
@@ -173,8 +141,8 @@ namespace ManageVirtualMachine
                         .WithExistingResourceGroup(rgName)
                         .WithExistingPrimaryNetwork(network)
                         .WithSubnet("subnet1") // Referencing the default subnet name when no name specified at creation
-                        .WithPrimaryPrivateIpAddressDynamic()
-                        .WithoutPrimaryPublicIpAddress()
+                        .WithPrimaryPrivateIPAddressDynamic()
+                        .WithoutPrimaryPublicIPAddress()
                         .WithPopularLinuxImage(KnownLinuxVirtualMachineImage.UbuntuServer16_04_Lts)
                         .WithRootUsername(userName)
                         .WithRootPassword(password)
@@ -191,7 +159,7 @@ namespace ManageVirtualMachine
 
                 Utilities.Log("Printing list of VMs =======");
 
-                foreach (var virtualMachine in azure.VirtualMachines.ListByGroup(resourceGroupName))
+                foreach (var virtualMachine in azure.VirtualMachines.ListByResourceGroup(resourceGroupName))
                 {
                     Utilities.PrintVirtualMachine(virtualMachine);
                 }
@@ -233,7 +201,7 @@ namespace ManageVirtualMachine
 
                 var azure = Azure
                     .Configure()
-                    .WithLogLevel(HttpLoggingDelegatingHandler.Level.BASIC)
+                    .WithLogLevel(HttpLoggingDelegatingHandler.Level.Basic)
                     .Authenticate(credentials)
                     .WithDefaultSubscription();
 

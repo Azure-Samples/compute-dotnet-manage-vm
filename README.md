@@ -4,7 +4,7 @@ platforms: .Net
 author: selvasingh
 ---
 
-#Getting Started with Compute - Manage Virtual Machine - in .Net #
+# Getting Started with Compute - Manage Virtual Machine - in .Net #
 
           Azure Compute sample for managing virtual machines -
            - Create a virtual machine with managed OS Disk
@@ -12,7 +12,6 @@ author: selvasingh
            - Stop a virtual machine
            - Restart a virtual machine
            - Update a virtual machine
-             - Expand the OS drive
              - Tag a virtual machine (there are many possible variations here)
              - Attach data disks
              - Detach data disks

@@ -1,0 +1,2 @@
+C:\Sources\dotnet-samples\compute-dotnet-manage-vm\bin\Debug\netstandard1.6\ManageVirtualMachine.deps.json
+C:\Sources\dotnet-samples\compute-dotnet-manage-vm\obj\Debug\netstandard1.6\ManageVirtualMachine.csproj.CoreCompileInputs.cache

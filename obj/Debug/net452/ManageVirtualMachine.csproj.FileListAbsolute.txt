@@ -1,0 +1,4 @@
+C:\Sources\dotnet-samples\compute-dotnet-manage-vm\bin\Debug\net452\ManageVirtualMachine.runtimeconfig.json
+C:\Sources\dotnet-samples\compute-dotnet-manage-vm\bin\Debug\net452\ManageVirtualMachine.runtimeconfig.dev.json
+C:\Sources\dotnet-samples\compute-dotnet-manage-vm\obj\Debug\net452\ManageVirtualMachine.csproj.ManageVirtualMachine.exe.config
+C:\Sources\dotnet-samples\compute-dotnet-manage-vm\obj\Debug\net452\ManageVirtualMachine.csproj.CoreCompileInputs.cache

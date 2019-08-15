@@ -4,24 +4,24 @@ languages:
 - csharp
 products:
 - azure
-services: Compute
-platforms: dotnet
-author: yaohaizh
+extensions:
+- services: Compute
+- platforms: dotnet
 ---
 
 # This sample demonstrates how to manage your Azure virtual machines using a .NET client #
 
-          Azure Compute sample for managing virtual machines -
-           - Create a virtual machine with managed OS Disk
-           - Start a virtual machine
-           - Stop a virtual machine
-           - Restart a virtual machine
-           - Update a virtual machine
-             - Tag a virtual machine (there are many possible variations here)
-             - Attach data disks
-             - Detach data disks
-           - List virtual machines
-           - Delete a virtual machine.
+ Azure Compute sample for managing virtual machines -
+  - Create a virtual machine with managed OS Disk
+  - Start a virtual machine
+  - Stop a virtual machine
+  - Restart a virtual machine
+  - Update a virtual machine
+    - Tag a virtual machine (there are many possible variations here)
+    - Attach data disks
+    - Detach data disks
+  - List virtual machines
+  - Delete a virtual machine.
 
 
 ## Running this Sample ##

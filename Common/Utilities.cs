@@ -48,6 +48,7 @@ using Microsoft.Azure.Management.Locks.Fluent;
 using Microsoft.Azure.Management.Msi.Fluent;
 using Microsoft.Azure.Management.Eventhub.Fluent;
 using Microsoft.Azure.Management.Monitor.Fluent;
+using ISqlDatabase = Microsoft.Azure.Management.Sql.Fluent.ISqlDatabase;
 
 namespace Microsoft.Azure.Management.Samples.Common
 {

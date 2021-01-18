@@ -5,8 +5,8 @@ languages:
 products:
 - azure
 extensions:
-- services: Compute
-- platforms: dotnet
+  services: Compute
+  platforms: dotnet
 ---
 
 # This sample demonstrates how to manage your Azure virtual machines using a .NET client #
